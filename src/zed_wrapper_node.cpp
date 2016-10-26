@@ -76,13 +76,15 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 
+#include <X11/Xlib.h>
+
 using namespace sl::zed;
 using namespace std;
 
 
 int confidence;
 bool computeDepth;
-bool grabbing=false;
+bool grabbing = false;
 int openniDepthMode = 0; // 16 bit UC data in mm else 32F in m, for more info http://www.ros.org/reps/rep-0118.html
 
 // Point cloud variables
@@ -94,17 +96,17 @@ ros::Time point_cloud_time;
  * \param name : the path to the file
  */
 bool file_exist(const std::string& name) {
-  struct stat buffer;   
-  return (stat(name.c_str(), &buffer) == 0); 
+    struct stat buffer;
+    return (stat(name.c_str(), &buffer) == 0);
 }
 
-/* \brief Image to ros message conversion 
+/* \brief Image to ros message conversion
  * \param img : the image to publish
  * \param encodingType : the sensor_msgs::image_encodings encoding type
  * \param frameId : the id of the reference frame of the image
  * \param t : the ros::Time to stamp the image
-*/
-sensor_msgs::ImagePtr imageToROSmsg(cv::Mat img, const std::string encodingType, std::string frameId, ros::Time t){
+ */
+sensor_msgs::ImagePtr imageToROSmsg(cv::Mat img, const std::string encodingType, std::string frameId, ros::Time t) {
     sensor_msgs::ImagePtr ptr = boost::make_shared<sensor_msgs::Image>();
     sensor_msgs::Image& imgMessage = *ptr;
     imgMessage.header.stamp = t;
@@ -113,16 +115,16 @@ sensor_msgs::ImagePtr imageToROSmsg(cv::Mat img, const std::string encodingType,
     imgMessage.width = img.cols;
     imgMessage.encoding = encodingType;
     int num = 1; //for endianness detection
-    imgMessage.is_bigendian = !(*(char *)&num == 1);
+    imgMessage.is_bigendian = !(*(char *) &num == 1);
     imgMessage.step = img.cols * img.elemSize();
     size_t size = imgMessage.step * img.rows;
     imgMessage.data.resize(size);
 
     if (img.isContinuous())
-        memcpy((char*)(&imgMessage.data[0]), img.data, size);
+        memcpy((char*) (&imgMessage.data[0]), img.data, size);
     else {
         uchar* opencvData = img.data;
-        uchar* rosData = (uchar*)(&imgMessage.data[0]);
+        uchar* rosData = (uchar*) (&imgMessage.data[0]);
         for (unsigned int i = 0; i < img.rows; i++) {
             memcpy(rosData, opencvData, imgMessage.step);
             rosData += imgMessage.step;
@@ -186,9 +188,9 @@ void publishTrackedFrame(Eigen::Matrix4f Path, tf2_ros::TransformBroadcaster &tr
  */
 void publishImage(cv::Mat img, image_transport::Publisher &pub_img, string img_frame_id, ros::Time t) {
     pub_img.publish(imageToROSmsg(img
-                                , sensor_msgs::image_encodings::BGR8
-                                , img_frame_id
-                                , t ));
+            , sensor_msgs::image_encodings::BGR8
+            , img_frame_id
+            , t));
 }
 
 /* \brief Publish a cv::Mat depth image with a ros Publisher
@@ -199,20 +201,18 @@ void publishImage(cv::Mat img, image_transport::Publisher &pub_img, string img_f
  */
 void publishDepth(cv::Mat depth, image_transport::Publisher &pub_depth, string depth_frame_id, ros::Time t) {
     string encoding;
-    if(openniDepthMode){
+    if (openniDepthMode) {
         depth *= 1000.0f;
         depth.convertTo(depth, CV_16UC1); // in mm, rounded
         encoding = sensor_msgs::image_encodings::TYPE_16UC1;
-    }
-    else {
+    } else {
         encoding = sensor_msgs::image_encodings::TYPE_32FC1;
     }
     pub_depth.publish(imageToROSmsg(depth
-                                , encoding
-                                , depth_frame_id
-                                , t ));
+            , encoding
+            , depth_frame_id
+            , t));
 }
-
 
 /* \brief Publish a pointCloud with a ros Publisher
  * \param width : the width of the point cloud
@@ -220,46 +220,46 @@ void publishDepth(cv::Mat depth, image_transport::Publisher &pub_depth, string d
  * \param pub_cloud : the publisher object to use
  */
 void publishPointCloud(int width, int height, ros::Publisher &pub_cloud) {
-    
-        pcl::PointCloud<pcl::PointXYZRGB> point_cloud;
-        point_cloud.width = width;
-        point_cloud.height = height;
-        int size = width*height;
-        point_cloud.points.resize(size);
-        int index4 = 0;
-        float color;
 
-        int point_step = cloud.channels * cloud.getDataSize();
-        int row_step = point_step * width;
+    pcl::PointCloud<pcl::PointXYZRGB> point_cloud;
+    point_cloud.width = width;
+    point_cloud.height = height;
+    int size = width*height;
+    point_cloud.points.resize(size);
+    int index4 = 0;
+    float color;
 
-        float* cpu_cloud;
-        cpu_cloud = (float*)malloc(row_step*height);
+    int point_step = cloud.channels * cloud.getDataSize();
+    int row_step = point_step * width;
 
-        cudaError_t err = cudaMemcpy2D(
-        	cpu_cloud, row_step, cloud.data, cloud.getWidthByte(),
-        	row_step, height, cudaMemcpyDeviceToHost);
-    
-        for (int i = 0; i < size; i++) {
-            if (cpu_cloud[index4 + 2] > 0) { // Check if it's an unvalid point, the depth is more than 0
-                index4 += 4;
-                continue;
-            }
-            point_cloud.points[i].y = -cpu_cloud[index4++];
-            point_cloud.points[i].z = cpu_cloud[index4++];
-            point_cloud.points[i].x = -cpu_cloud[index4++];
-            point_cloud.points[i].rgb = cpu_cloud[index4++];
+    float* cpu_cloud;
+    cpu_cloud = (float*) malloc(row_step * height);
+
+    cudaError_t err = cudaMemcpy2D(
+            cpu_cloud, row_step, cloud.data, cloud.getWidthByte(),
+            row_step, height, cudaMemcpyDeviceToHost);
+
+    for (int i = 0; i < size; i++) {
+        if (cpu_cloud[index4 + 2] > 0) { // Check if it's an unvalid point, the depth is more than 0
+            index4 += 4;
+            continue;
         }
+        point_cloud.points[i].y = -cpu_cloud[index4++];
+        point_cloud.points[i].z = cpu_cloud[index4++];
+        point_cloud.points[i].x = -cpu_cloud[index4++];
+        point_cloud.points[i].rgb = cpu_cloud[index4++];
+    }
 
-        sensor_msgs::PointCloud2 output;
-        pcl::toROSMsg(point_cloud, output); // Convert the point cloud to a ROS message
-        output.header.frame_id = point_cloud_frame_id; // Set the header values of the ROS message
-        output.header.stamp = point_cloud_time;
-        output.height = height;
-        output.width = width;
-        output.is_bigendian = false;
-        output.is_dense = false;
-        pub_cloud.publish(output);
-        free(cpu_cloud);
+    sensor_msgs::PointCloud2 output;
+    pcl::toROSMsg(point_cloud, output); // Convert the point cloud to a ROS message
+    output.header.frame_id = point_cloud_frame_id; // Set the header values of the ROS message
+    output.header.stamp = point_cloud_time;
+    output.height = height;
+    output.width = width;
+    output.is_bigendian = false;
+    output.is_dense = false;
+    pub_cloud.publish(output);
+    free(cpu_cloud);
 }
 
 /* \brief Publish the informations of a camera with a ros Publisher
@@ -348,6 +348,8 @@ void callback(zed_ros_wrapper::ZedConfig &config, uint32_t level) {
 }
 
 int main(int argc, char **argv) {
+    XInitThreads();
+
     // Launch file parameters
     int resolution = sl::zed::HD720;
     int quality = sl::zed::MODE::PERFORMANCE;
@@ -560,7 +562,7 @@ int main(int argc, char **argv) {
                 computeDepth = (depth_SubNumber + cloud_SubNumber + odom_SubNumber) > 0; // Detect if one of the subscriber need to have the depth information
                 ros::Time t = ros::Time::now(); // Get current time
 
-                grabbing=true;
+                grabbing = true;
                 if (computeDepth) {
                     int actual_confidence = zed->getConfidenceThreshold();
                     if (actual_confidence != confidence)
@@ -569,7 +571,7 @@ int main(int argc, char **argv) {
                 } else
                     old_image = zed->grab(static_cast<sl::zed::SENSING_MODE> (sensing_mode), false, false); // Ask to not compute the depth
 
-                grabbing=false;
+                grabbing = false;
 
                 if (old_image) { // Detect if a error occurred (for example: the zed have been disconnected) and re-initialize the ZED
                     ROS_DEBUG("Wait for a new image to proceed");

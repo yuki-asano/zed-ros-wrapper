@@ -100,6 +100,7 @@ target_link_libraries(
 	${CUDA_LIBRARIES} ${CUDA_nppi_LIBRARY} ${CUDA_npps_LIBRARY}
         ${OpenCV_LIBS}
         ${PCL_LIBRARIES}
+        X11
     )
 
 add_dependencies(zed_wrapper_node ${PROJECT_NAME}_gencfg)
