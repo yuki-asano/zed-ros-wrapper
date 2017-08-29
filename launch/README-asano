@@ -1,0 +1,5 @@
+* launch
+roslaunch zed_wrapper zed.launch
+
+* log
+roslaunch zed_record.launch save_dir:=`pwd` save_cloud:=false use_compress:=false other_options:='--duration 10'

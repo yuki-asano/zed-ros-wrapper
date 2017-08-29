@@ -1,0 +1,42 @@
+<launch>
+  <arg name="other_options" default=""/>
+  <arg name="other_regex_topics" default=""/>
+
+  <arg name="save_cloud" default="false" />
+  <arg name="use_compress" default="false" />
+
+  <arg name="save_dir"/> <!-- destination directory of bagfile -->
+  <arg name="bagfile_prefix" default="zed" /> <!-- prefix of bagfile name (filename is prefix_date.bag) -->
+  <param name="mk_save_dir" command="mkdir -p $(arg save_dir)" />
+
+  <arg unless="$(arg use_compress)"
+       name="image_topics" default="/zed/right/image_rect_color
+    /zed/left/image_rect_color
+    /zed/depth/depth_registered
+    " />
+  <arg if="$(arg use_compress)"
+       name="image_topics" default="/zed/right/image_rect_color/compressed
+    /zed/left/image_rect_color/compressed
+    /zed/depth/depth_registered/compressedDepth
+    " />
+  <arg name="camera_info_topics" default="/zed/left/camera_info
+    /zed/right/camera_info
+    /zed/depth/camera_info
+    " />
+  <arg name="cloud_topics" default="/zed/point_cloud/cloud_registered" if="$(arg save_cloud)"/>
+  <arg name="cloud_topics" default="" unless="$(arg save_cloud)"/>
+
+  <arg name="other_topics" default="/tf /tf_static /zed/odom /zed/joint_states" />
+
+  <!-- execute -->
+  <node name="default_rosbag_record" pkg="rosbag" type="record"
+        args="$(arg image_topics)
+              $(arg camera_info_topics)
+              $(arg cloud_topics)
+              $(arg other_topics)
+              -o $(arg save_dir)/$(arg bagfile_prefix)
+              $(arg other_options)
+              -e
+              $(arg other_regex_topics)
+              "/>
+</launch>

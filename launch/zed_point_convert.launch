@@ -1,0 +1,31 @@
+<launch>
+  <param name="/use_sim_time" value="true" />
+  <node name="rosbag_play"
+        pkg="rosbag" type="play"
+        args="/home/leus/zed/coms_drive_outside_with_zed_2017-08-28-17-05-26.bag --clock --loop"
+        output="screen">
+  </node>
+
+  <group ns="/zed">
+    <node name="register" pkg="nodelet" type="nodelet" args="standalone depth_image_proc/register">
+      <remap from="rgb/camera_info" to="left/camera_info" />
+      <remap from="depth/camera_info" to="depth/camera_info" />
+      <remap from="depth/image_rect" to="depth/depth_registered" />
+    </node>
+
+    <node name="pointcloud_xyzrgb"
+          pkg="nodelet" type="nodelet"
+          args="standalone depth_image_proc/point_cloud_xyzrgb"> 
+      <remap from="rgb/camera_info" to="left/camera_info" />
+      <remap from="rgb/image_rect_color" to="left/image_rect_color" />
+      <rosparam>
+        queue_size: 5
+      </rosparam>
+    </node>
+  </group>
+
+  <node name="tf_publisher" pkg="tf" type="static_transform_publisher"
+        args="0 0 0 0 0 -1.57 zed_center_vertical zed_center 10" />
+
+  <node name="rviz" pkg="rviz" type="rviz" />
+</launch>
